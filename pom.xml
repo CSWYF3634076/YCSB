@@ -203,6 +203,8 @@ LICENSE file.
     <module>tablestore</module>
     <module>voltdb</module>
     <module>zookeeper</module>
+      <module>memcachedudp</module>
+      <module>memcachedudp</module>
   </modules>
 
   <build>

@@ -84,6 +84,7 @@ DATABASES = {
     "jdbc"         : "site.ycsb.db.JdbcDBClient",
     "kudu"         : "site.ycsb.db.KuduYCSBClient",
     "memcached"    : "site.ycsb.db.MemcachedClient",
+    "memcachedudp" : "site.ycsb.db.MemcachedUDPClient",
     "maprdb"       : "site.ycsb.db.mapr.MapRDBClient",
     "maprjsondb"   : "site.ycsb.db.mapr.MapRJSONDBClient",
     "mongodb"      : "site.ycsb.db.MongoDbClient",
