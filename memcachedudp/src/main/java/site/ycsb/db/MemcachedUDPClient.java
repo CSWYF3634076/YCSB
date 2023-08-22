@@ -13,44 +13,35 @@ import site.ycsb.*;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.net.InetSocketAddress;
 import java.text.MessageFormat;
 import java.util.*;
 
 
-
+/**
+ * Concrete Memcached udp client implementation.
+ */
 public class MemcachedUDPClient extends DB {
 
   private com.whalin.MemCached.MemCachedClient client;
   private final Logger logger = Logger.getLogger(getClass());
 
+  private SockIOPool pool;
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
 
-
-  static {
-    String[] serverlist = { "127.0.0.1:11211"};
-    SockIOPool pool = SockIOPool.getInstance();
-    pool.setServers(serverlist);
-    pool.initialize();
-  }
 
   protected com.whalin.MemCached.MemCachedClient memcachedClient() {
     return client;
   }
 
   public void init() throws DBException {
+//    System.out.println("init init init init init init init init init");
     try {
+      String[] serverlist = new String[]{"192.168.238.129:11211"};
+      pool = SockIOPool.getInstance("test", false); //NOTE false=udp
+      pool.setServers(serverlist);
+      pool.initialize();
       client = createMemcachedClient();
-//      checkOperationStatus = Boolean.parseBoolean(
-//          getProperties().getProperty(CHECK_OPERATION_STATUS_PROPERTY,
-//              CHECK_OPERATION_STATUS_DEFAULT));
-//      objectExpirationTime = Integer.parseInt(
-//          getProperties().getProperty(OBJECT_EXPIRATION_TIME_PROPERTY,
-//              DEFAULT_OBJECT_EXPIRATION_TIME));
-//      shutdownTimeoutMillis = Integer.parseInt(
-//          getProperties().getProperty(SHUTDOWN_TIMEOUT_MILLIS_PROPERTY,
-//              DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));
     } catch (Exception e) {
       throw new DBException(e);
     }
@@ -59,13 +50,12 @@ public class MemcachedUDPClient extends DB {
   protected com.whalin.MemCached.MemCachedClient createMemcachedClient()
       throws Exception {
     // 第一个参数表示使用udp协议，第二个参数表示使用文本协议
-    return new com.whalin.MemCached.MemCachedClient(false,false);
+    return new com.whalin.MemCached.MemCachedClient("test", false, false);
   }
 
 
   @Override
   public Status read(String table, String key, Set<String> fields, Map<String, ByteIterator> result) {
-
     key = createQualifiedKey(table, key);
     try {
       Object val = memcachedClient().get(key);
@@ -80,13 +70,17 @@ public class MemcachedUDPClient extends DB {
   }
 
   @Override
-  public Status scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+  public Status scan(
+      String table, String startkey, int recordcount, Set<String> fields,
+      Vector<HashMap<String, ByteIterator>> result){
     return null;
   }
 
   @Override
   public Status update(String table, String key, Map<String, ByteIterator> values) {
+    //System.out.println("Update:Update:Update:Update: " + key);
     key = createQualifiedKey(table, key);
+
     try {
       return memcachedClient().replace(key, toJson(values))? Status.OK : Status.ERROR;
     } catch (Exception e) {
@@ -99,7 +93,12 @@ public class MemcachedUDPClient extends DB {
   public Status insert(String table, String key, Map<String, ByteIterator> values) {
     key = createQualifiedKey(table, key);
     try {
-      return memcachedClient().add(key, toJson(values))? Status.OK : Status.ERROR;
+      boolean ok = memcachedClient().set(key, toJson(values));
+      if(!ok){
+        return Status.ERROR;
+      }else{
+        return Status.OK;
+      }
     } catch (Exception e) {
       logger.error("Error inserting value", e);
       return Status.ERROR;
@@ -112,7 +111,9 @@ public class MemcachedUDPClient extends DB {
   }
 
 
-  protected static void fromJson(String value, Set<String> fields, Map<String, ByteIterator> result) throws IOException {
+  protected static void fromJson(
+      String value, Set<String> fields,
+      Map<String, ByteIterator> result) throws IOException {
     JsonNode json = MAPPER.readTree(value);
     boolean checkFields = fields != null && !fields.isEmpty();
     for (Iterator<Map.Entry<String, JsonNode>> jsonFields = json.getFields();
@@ -134,7 +135,8 @@ public class MemcachedUDPClient extends DB {
     return MessageFormat.format("{0}-{1}", table, key);
   }
 
-  protected static String toJson(Map<String, ByteIterator> values) throws IOException {
+  protected static String toJson(Map<String, ByteIterator> values)
+      throws IOException {
     ObjectNode node = MAPPER.createObjectNode();
     Map<String, String> stringMap = StringByteIterator.getStringMap(values);
     for (Map.Entry<String, String> pair : stringMap.entrySet()) {
